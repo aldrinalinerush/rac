@@ -984,9 +984,15 @@ function renderSaved(content){
 }
 
 /* ============================================================ 7. BACKUP & ABOUT ============================================================ */
+/** True when running inside an in-app mini browser (Messenger, Instagram, etc.) that can't download files. */
+function isInAppBrowser(){return /FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger|Twitter/i.test(navigator.userAgent||"");}
 /** Downloads the entire model as a dated JSON backup file. */
 function exportData(){
-  const blob=new Blob([JSON.stringify(model,null,2)],{type:"application/json"});
+  if(isInAppBrowser()){
+    openModal({title:"Open in your browser first",message:"You're viewing this inside an app's mini browser, which can't download files. To export your backup, open this site in Safari or Chrome (tap the ⋯ or share menu → Open in Browser), then press Export again.",confirmText:"Got it",cancelText:"Close"});
+    return;
+  }
+  const blob=new Blob([JSON.stringify(model,null,2)],{type:"application/json;charset=utf-8"});
   const url=URL.createObjectURL(blob);
   const a=h("a",{href:url,download:"rac-backup-"+new Date().toISOString().slice(0,10)+".json"});
   document.body.appendChild(a);a.click();a.remove();
