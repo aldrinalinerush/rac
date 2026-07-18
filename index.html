@@ -58,6 +58,8 @@
   #search:focus{border-color:var(--accent)}
   .tbtn{background:var(--panel2); border:1px solid var(--line); color:var(--text); padding:9px 12px; border-radius:9px; cursor:pointer; font-size:13px; white-space:nowrap;}
   .tbtn:hover{border-color:var(--accent)}
+  #menuBtn{display:none; font-size:16px; padding:8px 12px}
+  .navbackdrop{display:none}
 
   .quick{display:flex; align-items:center; gap:10px; padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--line); flex:0 0 auto;}
   .qtoggle{display:flex; flex:0 0 auto; background:var(--panel2); border:1px solid var(--line); border-radius:9px; overflow:hidden}
@@ -190,14 +192,29 @@
   nav::-webkit-scrollbar,.content::-webkit-scrollbar{height:9px;width:9px}
   nav::-webkit-scrollbar-thumb,.content::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
 
-  /* responsive & touch hardening */
-  @media(max-width:720px){nav{width:158px!important} .resizer{display:none} .cat{font-size:12.5px; padding:8px} .card .line{font-size:16.5px} .brandtext span{display:none} .bl{display:none}}
+  /* responsive & touch hardening.
+     ≤720px: the sidebar becomes a slide-in drawer behind the ☰ button
+     (standard mobile pattern) so content gets the full screen width. */
+  @media(max-width:720px){
+    #menuBtn{display:inline-block}
+    .resizer{display:none}
+    nav{position:fixed; top:0; bottom:0; left:0; width:min(80vw,300px)!important; z-index:200;
+        transform:translateX(-105%); transition:transform .22s ease; box-shadow:8px 0 30px rgba(0,0,0,.35); padding-top:16px}
+    body.navopen nav{transform:none}
+    .navbackdrop{position:fixed; inset:0; background:rgba(9,12,18,.5); z-index:190; opacity:0; pointer-events:none; transition:opacity .2s}
+    body.navopen .navbackdrop{display:block; opacity:1; pointer-events:auto}
+    .cat{font-size:14px; padding:12px}
+    .card .line{font-size:16.5px}
+    .brandtext span{display:none} .bl{display:none}
+    .minibtn{font-size:11px; padding:2px 6px}
+    .content{padding:14px 14px 90px}
+  }
   @media(max-width:560px){
     header{flex-wrap:wrap; gap:8px}
     #search{order:5; flex:1 1 100%; min-width:0}
     .qtoggle button{padding:7px 9px; font-size:12px}
   }
-  @media(max-width:480px){nav{width:132px!important} .content{padding:14px 14px 90px} .card .line{font-size:15.5px} .modal{max-width:none}}
+  @media(max-width:480px){.card .line{font-size:15.5px} .modal{max-width:none} .chead{font-size:19px}}
   @media(pointer:coarse){
     /* touch devices have no hover — keep actions permanently visible & finger-sized */
     .actions,.catctrl,.subhead .sctrl{opacity:1}
@@ -210,6 +227,7 @@
 </head>
 <body>
 <header>
+  <button class="tbtn" id="menuBtn" aria-label="Open categories menu">☰</button>
   <div class="brand" title="Home — go to Reaching Them">
     <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="rlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7A72FF"/><stop offset="1" stop-color="#4B3FDE"/></linearGradient></defs><rect x="2" y="2" width="60" height="60" rx="15" fill="url(#rlg)"/><path d="M21 15 H43 a9 9 0 0 1 9 9 V32 a9 9 0 0 1 -9 9 H30 l-8 8 v-8 h-1 a9 9 0 0 1 -9 -9 V24 a9 9 0 0 1 9 -9 Z" fill="#fff"/><path d="M34 19 L25 30 h6.5 l-2.5 9 11 -13 h-6.5 z" fill="url(#rlg)"/></svg>
     <span class="brandtext">RAC<span>· Rapid Assist Console</span></span>
@@ -230,6 +248,7 @@
 </div>
 
 <main>
+  <div class="navbackdrop" id="navbackdrop"></div>
   <nav id="nav"></nav>
   <div class="resizer" id="resizer" title="Drag to resize the sidebar"></div>
   <section class="content" id="content"></section>
@@ -815,7 +834,7 @@ function renderNav(){
   GROUPS.forEach(([gid,label])=>{
     const hdr=h("div",{class:"navgroup",text:label});hdr.dataset.gid=gid;nav.appendChild(hdr);
     model.cats.filter(c=>c.group===gid).forEach(c=>{
-      const item=h("div",{class:"cat"+(!showingFav&&c.id===current?" active":""),data:{k:c.id},onClick:()=>{showingFav=false;current=c.id;document.getElementById("search").value="";persistView();render();const cc=document.getElementById("content");if(cc)cc.scrollTop=0;}},
+      const item=h("div",{class:"cat"+(!showingFav&&c.id===current?" active":""),data:{k:c.id},onClick:()=>{showingFav=false;current=c.id;document.getElementById("search").value="";persistView();render();const cc=document.getElementById("content");if(cc)cc.scrollTop=0;document.body.classList.remove("navopen");}},
         h("span",{class:"em",text:c.emoji}), h("span",{text:c.title}));
       item.draggable=true;
       item.ondragstart=e=>{navDragId=c.id;setTimeout(()=>item.classList.add("dragging"),0);if(e.dataTransfer){e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",c.id);}catch(_){}}};
@@ -1015,14 +1034,20 @@ function showAbout(){
 document.getElementById("search").addEventListener("input",render);
 document.getElementById("favBtn").onclick=()=>{showingFav=true;document.getElementById("search").value="";persistView();render();const cc=document.getElementById("content");if(cc)cc.scrollTop=0;document.querySelectorAll(".cat").forEach(c=>c.classList.remove("active"));};
 const brandEl=document.querySelector(".brand");
-if(brandEl){brandEl.onclick=()=>{showingFav=false;current="reach";document.getElementById("search").value="";persistView();renderNav();render();const c=document.getElementById("content");if(c)c.scrollTop=0;nav.scrollTop=0;};}
+if(brandEl){brandEl.onclick=()=>{showingFav=false;current="reach";document.getElementById("search").value="";persistView();renderNav();render();const c=document.getElementById("content");if(c)c.scrollTop=0;nav.scrollTop=0;document.body.classList.remove("navopen");};}
 const themeBtn=document.getElementById("themeBtn");
 function applyTheme(t){document.documentElement.setAttribute("data-theme",t);themeBtn.textContent=t==="light"?"☾":"☀";model.theme=t;persist();}
 themeBtn.onclick=()=>applyTheme(document.documentElement.getAttribute("data-theme")==="light"?"dark":"light");
 applyTheme(model.theme||"dark");
 document.getElementById("exportBtn").onclick=exportData;
 document.getElementById("importBtn").onclick=importData;
-document.addEventListener("keydown",e=>{if(e.key==="/"&&document.activeElement.id!=="search"&&!document.querySelector(".modal-overlay")){e.preventDefault();document.getElementById("search").focus();}});
+/* mobile drawer (☰) */
+document.getElementById("menuBtn").onclick=()=>document.body.classList.toggle("navopen");
+document.getElementById("navbackdrop").onclick=()=>document.body.classList.remove("navopen");
+document.addEventListener("keydown",e=>{
+  if(e.key==="/"&&document.activeElement.id!=="search"&&!document.querySelector(".modal-overlay")){e.preventDefault();document.getElementById("search").focus();}
+  else if(e.key==="Escape"&&document.body.classList.contains("navopen")){document.body.classList.remove("navopen");}
+});
 
 /* resizable sidebar (Notion-style) */
 (function(){
